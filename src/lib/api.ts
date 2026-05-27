@@ -103,52 +103,36 @@ class ApiClient {
   }
 
   // Booking endpoints
-  async createBooking(data: {
-    spot_id: number;
-    vehicle_license: string;
-    start_time: string;
-    end_time: string;
-  }) {
-    const response = await this.client.post('/api/bookings', data);
-    return response.data;
-  }
+async createBooking(data: {
+  spot_id: number;
+  vehicle_license: string;
+  start_time: string;
+  end_time: string;
+}) {
+  const response = await this.client.post('/bookings/', data);
+  return response.data;
+}
 
-  async getUserBookings() {
-    const response = await this.client.get('/api/bookings');
-    return response.data;
-  }
+async getUserBookings() {
+  const response = await this.client.get('/bookings/my');
+  return response.data;
+}
 
-  async getAllBookings() {
-    const response = await this.client.get('/api/bookings/all');
-    return response.data;
-  }
+async cancelBooking(bookingId: number) {
+  const response = await this.client.put(`/bookings/${bookingId}/cancel`);
+  return response.data;
+}
 
-  async getBooking(bookingId: number) {
-    const response = await this.client.get(`/api/bookings/${bookingId}`);
-    return response.data;
-  }
-
-  async updateBooking(bookingId: number, data: any) {
-    const response = await this.client.patch(`/api/bookings/${bookingId}`, data);
-    return response.data;
-  }
-
-  async cancelBooking(bookingId: number) {
-    const response = await this.client.delete(`/api/bookings/${bookingId}`);
-    return response.data;
-  }
-
-  async getRecommendations(data: {
-    start_time: string;
-    end_time: string;
-    zone_preference?: string;
-    ev_charging?: boolean;
-    handicap?: boolean;
-  }) {
-    const response = await this.client.post('/api/bookings/recommendations', data);
-    return response.data;
-  }
-
+async getRecommendations(data: {
+  start_time: string;
+  end_time: string;
+  zone_preference?: string;
+  ev_charging?: boolean;
+  handicap?: boolean;
+}) {
+  const response = await this.client.post('/bookings/recommendations', data);
+  return response.data;
+}
   // Analytics endpoints
   async getAnalytics(startDate?: string, endDate?: string) {
     const params = new URLSearchParams();
