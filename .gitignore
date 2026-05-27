@@ -1,0 +1,19 @@
+# Python venv
+backend/venv/
+venv/
+
+# Node modules
+node_modules/
+
+# Python cache
+**/__pycache__/
+*.py[cod]
+
+# Local SQLite DB
+backend/parking_system.db
+*.db
+
+# OS/editor noise (optional)
+.DS_Store
+.vscode/
+.idea/
