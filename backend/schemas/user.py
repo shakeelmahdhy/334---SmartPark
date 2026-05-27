@@ -26,6 +26,13 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 
+class AdminUserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool

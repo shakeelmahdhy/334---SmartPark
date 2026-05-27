@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from models.parking import SpotStatus, BookingStatus
 
@@ -91,7 +91,42 @@ class DashboardStats(BaseModel):
     reserved: int
     overall_occupancy_rate: float
     zone_stats: List[ZoneStats]
-    recent_bookings: List[BookingResponse]
+    recent_bookings: List[BookingResponse] = []
+    active_bookings: int = 0
+
+
+class ParkingSettings(BaseModel):
+    zones: List[str]
+    spots_per_zone: int
+    total_parking_spots: int
+    hourly_rate: float
+
+
+class DetectionEventCreate(BaseModel):
+    spot_id: Optional[int] = None
+    spot_number: Optional[str] = None
+    sensor_id: str
+    detected_status: SpotStatus
+    confidence: float = Field(default=0.95, ge=0, le=1)
+    event_type: str = "simulated_camera"
+    payload: Optional[Dict[str, Any]] = None
+
+
+class DetectionEventResponse(BaseModel):
+    id: int
+    spot_id: int
+    sensor_id: str
+    event_type: str
+    previous_status: SpotStatus
+    detected_status: SpotStatus
+    confidence: float
+    payload: Optional[Dict[str, Any]] = None
+    processed: bool
+    timestamp: datetime
+    parking_spot: Optional[ParkingSpotResponse] = None
+
+    class Config:
+        from_attributes = True
 
 
 class RecommendationRequest(BaseModel):
@@ -106,3 +141,16 @@ class RecommendationResponse(BaseModel):
     recommended_spots: List[ParkingSpotResponse]
     zone_availability: dict
     predicted_occupancy: dict
+
+
+class BookingQuoteRequest(BaseModel):
+    spot_id: int
+    start_time: datetime
+    end_time: datetime
+
+
+class BookingQuoteResponse(BaseModel):
+    spot_id: int
+    duration_hours: float
+    hourly_rate: float
+    total_price: float

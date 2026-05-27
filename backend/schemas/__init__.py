@@ -6,6 +6,7 @@ from schemas.parking import (
     ParkingSpotBase, ParkingSpotCreate, ParkingSpotUpdate, ParkingSpotResponse,
     BookingBase, BookingCreate, BookingUpdate, BookingResponse,
     OccupancyLogResponse, ZoneStats, DashboardStats,
+    ParkingSettings, DetectionEventCreate, DetectionEventResponse,
     RecommendationRequest, RecommendationResponse
 )
 from schemas.analytics import (
@@ -19,6 +20,7 @@ __all__ = [
     "ParkingSpotBase", "ParkingSpotCreate", "ParkingSpotUpdate", "ParkingSpotResponse",
     "BookingBase", "BookingCreate", "BookingUpdate", "BookingResponse",
     "OccupancyLogResponse", "ZoneStats", "DashboardStats",
+    "ParkingSettings", "DetectionEventCreate", "DetectionEventResponse",
     "RecommendationRequest", "RecommendationResponse",
     "AnalyticsDateRange", "OccupancyTrend", "RevenueTrend", "PeakHourData",
     "ZonePerformance", "PredictionData", "AnalyticsResponse", "DailyAnalyticsResponse",

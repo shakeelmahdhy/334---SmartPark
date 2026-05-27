@@ -1,4 +1,15 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import type {
+  User,
+  ParkingSpotApi,
+  DashboardStats,
+  ParkingSettings,
+  Booking,
+  BookingQuote,
+  DetectionEvent,
+  RecommendationResponse,
+  AnalyticsResponse,
+} from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -8,29 +19,21 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Request interceptor to add auth token
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+    this.client.interceptors.request.use((config) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
 
-    // Response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Clear token and redirect to login
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = '/';
@@ -40,7 +43,6 @@ class ApiClient {
     );
   }
 
-  // Auth endpoints
   async register(data: {
     email: string;
     username: string;
@@ -48,92 +50,120 @@ class ApiClient {
     full_name?: string;
     phone?: string;
   }) {
-    // FastAPI: POST /auth/register with JSON body
     const response = await this.client.post('/auth/register', data);
     return response.data;
   }
 
   async login(username: string, password: string) {
-    // FastAPI: POST /auth/login expects form data (OAuth2PasswordRequestForm)
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
-
     const response = await this.client.post('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
-    return response.data;
+    return response.data as { access_token: string; user: User };
   }
 
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<User> {
     const response = await this.client.get('/auth/me');
     return response.data;
   }
 
-  // Parking endpoints
-  async getParkingSpots(zone?: string, status?: string) {
+  async getUsers(): Promise<User[]> {
+    const response = await this.client.get('/auth/users');
+    return response.data;
+  }
+
+  async updateUserAdmin(
+    userId: number,
+    data: { email?: string; full_name?: string; phone?: string; is_active?: boolean }
+  ): Promise<User> {
+    const response = await this.client.put(`/auth/users/${userId}`, data);
+    return response.data;
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    await this.client.delete(`/auth/users/${userId}`);
+  }
+
+  async getParkingSpots(zone?: string, status?: string): Promise<ParkingSpotApi[]> {
     const params = new URLSearchParams();
     if (zone) params.append('zone', zone);
     if (status) params.append('status', status);
-
-    const response = await this.client.get(`/api/parking/spots?${params.toString()}`);
+    const qs = params.toString();
+    const response = await this.client.get(`/api/parking/spots${qs ? `?${qs}` : ''}`);
     return response.data;
   }
 
-  async getParkingSpot(spotId: number) {
-    const response = await this.client.get(`/api/parking/spots/${spotId}`);
+  async createParkingSpot(data: {
+    spot_number: string;
+    zone: string;
+    floor?: number;
+    is_handicap?: boolean;
+    is_ev_charging?: boolean;
+  }): Promise<ParkingSpotApi> {
+    const response = await this.client.post('/api/parking/spots', data);
     return response.data;
   }
 
-  async updateParkingSpot(spotId: number, data: any) {
+  async updateParkingSpot(
+    spotId: number,
+    data: { status?: string; is_handicap?: boolean; is_ev_charging?: boolean }
+  ): Promise<ParkingSpotApi> {
     const response = await this.client.patch(`/api/parking/spots/${spotId}`, data);
     return response.data;
   }
 
-  async getDashboardStats() {
+  async getDashboardStats(): Promise<DashboardStats> {
     const response = await this.client.get('/api/parking/dashboard');
     return response.data;
   }
 
-  async initializeParkingSpots() {
+  async getParkingSettings(): Promise<ParkingSettings> {
+    const response = await this.client.get('/api/parking/settings');
+    return response.data;
+  }
+
+  async getDetectionEvents(limit = 25): Promise<DetectionEvent[]> {
+    const response = await this.client.get(`/api/parking/detections?limit=${limit}`);
+    return response.data;
+  }
+
+  async initializeParkingSpots(): Promise<ParkingSpotApi[]> {
     const response = await this.client.post('/api/parking/initialize');
     return response.data;
   }
 
-  // Booking endpoints
   async createBooking(data: {
     spot_id: number;
     vehicle_license: string;
     start_time: string;
     end_time: string;
-  }) {
+  }): Promise<Booking> {
     const response = await this.client.post('/api/bookings', data);
     return response.data;
   }
 
-  async getUserBookings() {
+  async getBookingQuote(data: {
+    spot_id: number;
+    start_time: string;
+    end_time: string;
+  }): Promise<BookingQuote> {
+    const response = await this.client.post('/api/bookings/quote', data);
+    return response.data;
+  }
+
+  async getUserBookings(): Promise<Booking[]> {
     const response = await this.client.get('/api/bookings');
     return response.data;
   }
 
-  async getAllBookings() {
+  async getAllBookings(): Promise<Booking[]> {
     const response = await this.client.get('/api/bookings/all');
     return response.data;
   }
 
-  async getBooking(bookingId: number) {
-    const response = await this.client.get(`/api/bookings/${bookingId}`);
-    return response.data;
-  }
-
-  async updateBooking(bookingId: number, data: any) {
-    const response = await this.client.patch(`/api/bookings/${bookingId}`, data);
-    return response.data;
-  }
-
-  async cancelBooking(bookingId: number) {
+  async cancelBooking(bookingId: number): Promise<Booking> {
     const response = await this.client.delete(`/api/bookings/${bookingId}`);
     return response.data;
   }
@@ -144,30 +174,20 @@ class ApiClient {
     zone_preference?: string;
     ev_charging?: boolean;
     handicap?: boolean;
-  }) {
+  }): Promise<RecommendationResponse> {
     const response = await this.client.post('/api/bookings/recommendations', data);
     return response.data;
   }
 
-  // Analytics endpoints
-  async getAnalytics(startDate?: string, endDate?: string) {
+  async getAnalytics(startDate?: string, endDate?: string): Promise<AnalyticsResponse> {
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
-
-    const response = await this.client.get(`/api/analytics?${params.toString()}`);
+    const qs = params.toString();
+    const response = await this.client.get(`/api/analytics${qs ? `?${qs}` : ''}`);
     return response.data;
   }
 
-  async generateDailyAnalytics(targetDate?: string) {
-    const params = new URLSearchParams();
-    if (targetDate) params.append('target_date', targetDate);
-
-    const response = await this.client.post(`/api/analytics/generate-daily?${params.toString()}`);
-    return response.data;
-  }
-
-  // WebSocket connection
   createWebSocket(): WebSocket {
     const wsUrl = API_BASE_URL.replace('http', 'ws');
     return new WebSocket(`${wsUrl}/ws/parking`);

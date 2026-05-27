@@ -1,9 +1,10 @@
 import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { LayoutDashboard, Calendar, TrendingUp, Settings, LogOut } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const userNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/booking", label: "Booking", icon: Calendar },
+  { path: "/booking", label: "My Bookings", icon: Calendar },
   { path: "/predictions", label: "Predictions", icon: TrendingUp },
 ];
 
@@ -16,12 +17,25 @@ const adminRoutes = ["/admin"];
 
 export function Layout() {
   const location = useLocation();
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const isLoginPage = location.pathname === "/";
 
-  if (isLoginPage) return <Outlet />;
+  if (loading) {
+    return null;
+  }
 
-  const role = localStorage.getItem("role") ?? "user";
-  const isAdmin = role === "admin";
+  if (isLoginPage) {
+    if (isAuthenticated) {
+      return <Navigate to={user?.is_admin ? "/admin" : "/dashboard"} replace />;
+    }
+    return <Outlet />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  const isAdmin = user?.is_admin ?? false;
 
   if (isAdmin && userRoutes.includes(location.pathname)) {
     return <Navigate to="/admin" replace />;
@@ -81,7 +95,7 @@ export function Layout() {
         <div className="px-3 py-4 border-t border-[#1e2d45]">
           <Link
             to="/"
-            onClick={() => localStorage.removeItem("role")}
+            onClick={logout}
             className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-500 hover:text-slate-300 transition-colors"
           >
             <LogOut className="w-4 h-4" />

@@ -1,14 +1,24 @@
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-sqlalchemy==2.0.25
-pydantic==2.5.3
-pydantic-settings==2.1.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-websockets==12.0
-python-dateutil==2.8.2
-numpy==1.26.3
-pandas==2.1.4
-scikit-learn==1.4.0
-email-validator==2.1.0.post1
+# Core API
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+sqlalchemy>=2.0.25,<3.0.0
+
+# Validation and settings
+pydantic>=2.10.0,<3.0.0
+pydantic-settings>=2.6.0,<3.0.0
+email-validator>=2.1.0,<3.0.0
+
+# Auth and security
+python-jose[cryptography]>=3.3.0,<4.0.0
+bcrypt>=4.0.1,<5.0.0
+python-multipart>=0.0.9,<1.0.0
+
+# Realtime
+websockets>=12.0,<16.0
+
+# Analytics (currently used in code)
+numpy>=1.26.0,<3.0.0
+
+# NOTE:
+# pandas / scikit-learn were removed because they are currently unused and
+# can fail metadata/build installation on some Windows setups.

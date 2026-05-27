@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     TOTAL_PARKING_SPOTS: int = 100
     ZONES: list = ["A", "B", "C", "D"]
     SPOTS_PER_ZONE: int = 25
+    HOURLY_RATE: float = 5.0
 
     class Config:
         env_file = ".env"

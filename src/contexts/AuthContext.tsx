@@ -37,16 +37,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      if (!storedToken) {
+        setLoading(false);
+        return;
+      }
 
-    if (storedToken && storedUser) {
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
+      try {
+        const userData = await api.getCurrentUser();
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setLoading(false);
+    initAuth();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -73,14 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone?: string;
   }) => {
     try {
-      const response = await api.register(data);
-      const { access_token, user: userData } = response;
-
-      setToken(access_token);
-      setUser(userData);
-
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Backend register returns only user data; perform login afterwards
+      // to establish a valid authenticated session in one flow.
+      await api.register(data);
+      await login(data.username, data.password);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

@@ -1,24 +1,16 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from jose import JWTError, jwt          # for creating/reading JWT tokens
-from passlib.context import CryptContext  # for hashing/verifying passwords
+import bcrypt
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 from models.database import get_db
 from models.user import User, Vehicle
-from schemas.user import UserCreate, UserUpdate, TokenData, VehicleCreate
+from schemas.user import UserCreate, UserUpdate, AdminUserUpdate, TokenData, VehicleCreate
 from config import settings
-
-# ─────────────────────────────────────────────
-# PASSWORD HASHING
-# ─────────────────────────────────────────────
-# CryptContext tells passlib to use bcrypt algorithm.
-# bcrypt is a slow hash — designed to be hard for attackers to crack.
-# "deprecated=auto" means old hashes get upgraded automatically.
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ─────────────────────────────────────────────
 # JWT TOKEN SETUP
@@ -34,12 +26,18 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 # ─────────────────────────────────────────────
 def hash_password(plain_password: str) -> str:
     """Turn 'mypassword123' into '$2b$12$...' (bcrypt hash)."""
-    return pwd_context.hash(plain_password)
+    return bcrypt.hashpw(
+        plain_password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Check if a plain password matches a stored hash. Returns True/False."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+    )
 
 
 # ─────────────────────────────────────────────
@@ -107,12 +105,6 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     3. Create User row in DB
     4. Return the User object
     """
-    # TEMP DEBUG
-    print("CREATE_USER CALLED")
-    print("Email:", user_data.email)
-    print("Username:", user_data.username)
-    print("Raw password value:", repr(user_data.password))
-    print("Password length:", len(user_data.password))
     # Step 1: Guard against duplicates
     if get_user_by_email(db, user_data.email):
         raise HTTPException(
@@ -238,6 +230,26 @@ def get_current_admin_user(
 # ─────────────────────────────────────────────
 # USER MANAGEMENT: Update / Delete
 # ─────────────────────────────────────────────
+def admin_update_user(db: Session, user_id: int, user_data: AdminUserUpdate) -> User:
+    """Admin: update another user's profile or active status."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user_data.email is not None:
+        user.email = user_data.email
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+    if user_data.phone is not None:
+        user.phone = user_data.phone
+    if user_data.is_active is not None:
+        user.is_active = user_data.is_active
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def update_user(db: Session, user_id: int, user_data: UserUpdate) -> User:
     """Update a user's profile fields. Only changes fields that are provided."""
     user = get_user_by_id(db, user_id)

@@ -1,16 +1,58 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import HTTPException, status
 from typing import List, Optional
 from datetime import datetime
-from models.parking import ParkingSpot, SpotStatus, OccupancyLog
+from models.parking import ParkingSpot, SpotStatus, OccupancyLog, DetectionEvent, Booking, BookingStatus
+from config import settings
 from schemas.parking import (
     ParkingSpotCreate, ParkingSpotResponse, ParkingSpotUpdate,
-    ZoneStats, DashboardStats
+    ZoneStats, DashboardStats, BookingResponse, ParkingSettings,
+    DetectionEventCreate, DetectionEventResponse
 )
 
 
 class ParkingController:
+    @staticmethod
+    def _sync_booking_for_detected_status(
+        spot: ParkingSpot,
+        detected_status: SpotStatus,
+        db: Session
+    ) -> None:
+        active_booking = db.query(Booking).filter(
+            Booking.spot_id == spot.id,
+            Booking.status == BookingStatus.ACTIVE
+        ).order_by(Booking.start_time.desc()).first()
+
+        if detected_status == SpotStatus.OCCUPIED:
+            upcoming_booking = db.query(Booking).filter(
+                Booking.spot_id == spot.id,
+                Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.PENDING])
+            ).order_by(Booking.start_time).first()
+            if upcoming_booking:
+                upcoming_booking.status = BookingStatus.ACTIVE
+                upcoming_booking.actual_start_time = datetime.utcnow()
+            return
+
+        if detected_status == SpotStatus.AVAILABLE and active_booking:
+            active_booking.status = BookingStatus.COMPLETED
+            active_booking.actual_end_time = datetime.utcnow()
+
+    @staticmethod
+    def _effective_status_after_detection(
+        spot: ParkingSpot,
+        detected_status: SpotStatus,
+        db: Session
+    ) -> SpotStatus:
+        if detected_status != SpotStatus.AVAILABLE:
+            return detected_status
+
+        reserved_booking = db.query(Booking).filter(
+            Booking.spot_id == spot.id,
+            Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.PENDING])
+        ).first()
+        return SpotStatus.RESERVED if reserved_booking else SpotStatus.AVAILABLE
+
     @staticmethod
     def create_parking_spot(spot_data: ParkingSpotCreate, db: Session) -> ParkingSpotResponse:
         # Check if spot number already exists
@@ -96,6 +138,82 @@ class ParkingController:
         return ParkingSpotResponse.model_validate(spot)
 
     @staticmethod
+    def process_detection_event(
+        event_data: DetectionEventCreate,
+        db: Session
+    ) -> DetectionEventResponse:
+        query = db.query(ParkingSpot)
+        if event_data.spot_id:
+            query = query.filter(ParkingSpot.id == event_data.spot_id)
+        elif event_data.spot_number:
+            query = query.filter(ParkingSpot.spot_number == event_data.spot_number)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="spot_id or spot_number is required"
+            )
+
+        spot = query.first()
+        if not spot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parking spot not found"
+            )
+
+        previous_status = spot.status
+        detected_status = event_data.detected_status
+
+        detection = DetectionEvent(
+            spot_id=spot.id,
+            sensor_id=event_data.sensor_id,
+            event_type=event_data.event_type,
+            previous_status=previous_status,
+            detected_status=detected_status,
+            confidence=event_data.confidence,
+            payload=event_data.payload,
+            processed=True,
+            timestamp=datetime.utcnow()
+        )
+        db.add(detection)
+
+        effective_status = ParkingController._effective_status_after_detection(
+            spot,
+            detected_status,
+            db
+        )
+
+        if previous_status != effective_status:
+            spot.status = effective_status
+            if effective_status == SpotStatus.OCCUPIED:
+                spot.last_occupied_at = detection.timestamp
+            elif effective_status == SpotStatus.AVAILABLE:
+                spot.last_freed_at = detection.timestamp
+
+            db.add(OccupancyLog(
+                spot_id=spot.id,
+                status=effective_status,
+                timestamp=detection.timestamp,
+            ))
+
+        ParkingController._sync_booking_for_detected_status(spot, detected_status, db)
+
+        db.commit()
+        db.refresh(detection)
+        db.refresh(detection, attribute_names=["parking_spot"])
+
+        return DetectionEventResponse.model_validate(detection)
+
+    @staticmethod
+    def get_detection_events(
+        db: Session,
+        limit: int = 25
+    ) -> List[DetectionEventResponse]:
+        events = db.query(DetectionEvent).options(
+            joinedload(DetectionEvent.parking_spot)
+        ).order_by(DetectionEvent.timestamp.desc()).limit(limit).all()
+        return [DetectionEventResponse.model_validate(event) for event in events]
+
+    @staticmethod
     def get_dashboard_stats(db: Session) -> DashboardStats:
         # Get overall stats
         total_spots = db.query(func.count(ParkingSpot.id)).scalar()
@@ -143,6 +261,13 @@ class ParkingController:
                 occupancy_rate=round(zone_occupancy_rate, 2)
             ))
 
+        active_bookings = db.query(func.count(Booking.id)).filter(
+            Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.ACTIVE])
+        ).scalar()
+
+        recent = db.query(Booking).order_by(Booking.created_at.desc()).limit(5).all()
+        recent_bookings = [BookingResponse.model_validate(b) for b in recent]
+
         return DashboardStats(
             total_spots=total_spots,
             available=available,
@@ -150,7 +275,17 @@ class ParkingController:
             reserved=reserved,
             overall_occupancy_rate=round(overall_occupancy_rate, 2),
             zone_stats=zone_stats,
-            recent_bookings=[]
+            recent_bookings=recent_bookings,
+            active_bookings=active_bookings,
+        )
+
+    @staticmethod
+    def get_parking_settings() -> ParkingSettings:
+        return ParkingSettings(
+            zones=settings.ZONES,
+            spots_per_zone=settings.SPOTS_PER_ZONE,
+            total_parking_spots=settings.TOTAL_PARKING_SPOTS,
+            hourly_rate=settings.HOURLY_RATE,
         )
 
     @staticmethod
@@ -160,8 +295,8 @@ class ParkingController:
         if existing_count > 0:
             return []
 
-        zones = ["A", "B", "C", "D"]
-        spots_per_zone = 25
+        zones = settings.ZONES
+        spots_per_zone = settings.SPOTS_PER_ZONE
         created_spots = []
 
         for zone in zones:

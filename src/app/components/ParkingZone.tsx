@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router";
 
 export interface ParkingSpot {
-  id: string;         // display label e.g. "A1"
-  db_id?: number;     // numeric backend id (present when loaded from API)
+  id: string;
+  zone: string;
+  db_id?: number;
   status: "available" | "occupied" | "reserved";
 }
 

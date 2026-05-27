@@ -23,7 +23,6 @@ export function Login() {
     try {
       if (isRegister) {
         await register({ username, email, password, full_name: fullName });
-        localStorage.setItem("role", "user");
         navigate("/dashboard");
       } else {
         await login(username, password);
@@ -31,7 +30,6 @@ export function Login() {
         const stored = localStorage.getItem("user");
         const user = stored ? JSON.parse(stored) : null;
         const isAdmin = user?.is_admin ?? false;
-        localStorage.setItem("role", isAdmin ? "admin" : "user");
         navigate(isAdmin ? "/admin" : "/dashboard");
       }
     } catch {
@@ -122,7 +120,7 @@ export function Login() {
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
             <input
               type="text"
-              placeholder={role === "admin" ? "admin" : "username"}
+              placeholder="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className={inputCls}
@@ -167,18 +165,13 @@ export function Login() {
           </p>
         )}
 
-        {/* Credentials hint */}
-        <div className="mt-8 border border-[#1e2d45] px-4 py-3">
-          <p className="text-[9px] font-mono text-slate-600 uppercase tracking-widest mb-2">Demo Credentials</p>
-          <div className="space-y-1">
-            <p className="text-[10px] font-mono text-slate-500">
-              <span className="text-amber-400/70">admin</span> · admin / admin123
-            </p>
-            <p className="text-[10px] font-mono text-slate-500">
-              <span className="text-sky-400/70">user</span> · james.smith1 / password123
+        {role === "admin" && (
+          <div className="mt-5 border border-[#1e2d45] bg-[#0b1120] px-4 py-3">
+            <p className="text-[10px] font-mono text-slate-500 leading-relaxed">
+              Sign in with an existing admin account. Admin access is verified by the backend after login.
             </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

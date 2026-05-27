@@ -15,9 +15,9 @@ def get_analytics(
     start_date: date = Query(default=None),
     end_date: date = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Get analytics data (Admin only)"""
+    """Get analytics data (authenticated users)"""
     # Default to last 30 days if not specified
     if not end_date:
         end_date = date.today()

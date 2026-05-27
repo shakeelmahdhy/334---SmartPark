@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -28,7 +28,7 @@ class ParkingSpot(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    # bookings = relationship("Booking", back_populates="parking_spot")
+    bookings = relationship("Booking", back_populates="parking_spot")
     occupancy_logs = relationship("OccupancyLog", back_populates="parking_spot", cascade="all, delete-orphan")
 
 
@@ -57,8 +57,7 @@ class Booking(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    # user = relationship("User", back_populates="bookings")
-    # parking_spot = relationship("ParkingSpot", back_populates="bookings")
+    parking_spot = relationship("ParkingSpot", back_populates="bookings")
 
 
 class OccupancyLog(Base):
@@ -72,3 +71,20 @@ class OccupancyLog(Base):
 
     # Relationships
     parking_spot = relationship("ParkingSpot", back_populates="occupancy_logs")
+
+
+class DetectionEvent(Base):
+    __tablename__ = "detection_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    spot_id = Column(Integer, ForeignKey("parking_spots.id"), nullable=False, index=True)
+    sensor_id = Column(String, index=True, nullable=False)
+    event_type = Column(String, default="simulated_camera")
+    previous_status = Column(Enum(SpotStatus), nullable=False)
+    detected_status = Column(Enum(SpotStatus), nullable=False)
+    confidence = Column(Float, default=0.95)
+    payload = Column(JSON, nullable=True)
+    processed = Column(Boolean, default=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    parking_spot = relationship("ParkingSpot")
