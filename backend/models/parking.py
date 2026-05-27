@@ -28,7 +28,7 @@ class ParkingSpot(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    bookings = relationship("Booking", back_populates="parking_spot")
+    # bookings = relationship("Booking", back_populates="parking_spot")
     occupancy_logs = relationship("OccupancyLog", back_populates="parking_spot", cascade="all, delete-orphan")
 
 
@@ -57,8 +57,8 @@ class Booking(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="bookings")
-    parking_spot = relationship("ParkingSpot", back_populates="bookings")
+    # user = relationship("User", back_populates="bookings")
+    # parking_spot = relationship("ParkingSpot", back_populates="bookings")
 
 
 class OccupancyLog(Base):

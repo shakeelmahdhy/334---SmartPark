@@ -107,6 +107,12 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     3. Create User row in DB
     4. Return the User object
     """
+    # TEMP DEBUG
+    print("CREATE_USER CALLED")
+    print("Email:", user_data.email)
+    print("Username:", user_data.username)
+    print("Raw password value:", repr(user_data.password))
+    print("Password length:", len(user_data.password))
     # Step 1: Guard against duplicates
     if get_user_by_email(db, user_data.email):
         raise HTTPException(

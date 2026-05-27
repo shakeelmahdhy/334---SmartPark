@@ -48,20 +48,27 @@ class ApiClient {
     full_name?: string;
     phone?: string;
   }) {
-    const response = await this.client.post('/api/auth/register', data);
+    // FastAPI: POST /auth/register with JSON body
+    const response = await this.client.post('/auth/register', data);
     return response.data;
   }
 
   async login(username: string, password: string) {
-    const response = await this.client.post('/api/auth/login', {
-      username,
-      password,
+    // FastAPI: POST /auth/login expects form data (OAuth2PasswordRequestForm)
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
+
+    const response = await this.client.post('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
     return response.data;
   }
 
   async getCurrentUser() {
-    const response = await this.client.get('/api/auth/me');
+    const response = await this.client.get('/auth/me');
     return response.data;
   }
 
