@@ -3,7 +3,7 @@ import { Search, RefreshCw, MapPin, TrendingUp } from "lucide-react";
 import { ParkingZone, ParkingSpot } from "../components/ParkingZone";
 import { api } from "../../lib/api";
 
-// Fallback mock data used when backend is unavailable
+// Fallback mock data used when backend is unavailable or returns no spots
 const MOCK_SPOTS: ParkingSpot[] = [
   { id: "A1", status: "available" }, { id: "A2", status: "occupied" },
   { id: "A3", status: "available" }, { id: "A4", status: "available" },
@@ -50,9 +50,10 @@ export function Dashboard() {
         db_id: s.id,
         status: s.status === "maintenance" ? "occupied" : s.status,
       }));
-      setZoneMap(groupByZone(mapped));
+      // Fall back to mock data if backend returns empty list
+      setZoneMap(groupByZone(mapped.length > 0 ? mapped : MOCK_SPOTS));
     } catch {
-      // Backend unavailable — keep mock data silently
+      // Backend unavailable — use mock data
       setZoneMap(groupByZone(MOCK_SPOTS));
     } finally {
       setLoading(false);
